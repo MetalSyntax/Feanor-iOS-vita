@@ -1,0 +1,4 @@
+# Feanor: botón -> toque, en coordenadas de la vista apaisada 480x320 (origen arriba a la izquierda).
+# La cruceta/stick izquierdo y X NO van acá: patch.c los manda como teclas del celular (2/4/6/8 y 5 = OK).
+# Se edita por FTP en ux0:data/feanor/controls.txt sin recompilar. SELECT+START 2 s: rotación.
+CIRCLE 449 290

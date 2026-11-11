@@ -1,0 +1,227 @@
+Binario: /Volumes/TOSHIBA EXT/PSVITA Develop/Feanor-iOS-vita/feanor_extract/Payload/feanor2i.app/feanor2i (armv6)
+FairPlay cryptid: 0 (descifrado)
+Rango imagen: 0x1000-0x7f000
+Rebase: 1496 palabras -> /Volumes/TOSHIBA EXT/PSVITA Develop/Feanor-iOS-vita/ux0_data/feanor/rebase.bin
+  __cfstring           cstr           65
+  __data               bss-interior   115
+  __data               cstr           336
+  __data               func           61
+  __data               interior       64
+  __data               sym            365
+  __dyld               sym            4
+  __nl_symbol_ptr      local          78
+  __objc_classlist     sym            6
+  __objc_classrefs     sym            5
+  __objc_protolist     interior       4
+  __objc_selrefs       cstr           221
+  __objc_superrefs     sym            5
+  __symbol_stub4       la_ptr         167
+Rechazadas (en rango, sin símbolo válido): {'__const': 3, '__dyld': 1, '__gcc_except_tab': 1, '__data': 213}
+Objetos descartados (tablas mixtas): 1
+  _key_value ok=1 malas=21
+Relocs externas: 140; imports únicos: 205
+  _AudioFileClose
+  _AudioFileGetProperty
+  _AudioFileGetPropertyInfo
+  _AudioFileOpenURL
+  _AudioFileReadBytes
+  _AudioFileReadPackets
+  _AudioQueueAddPropertyListener
+  _AudioQueueAllocateBuffer
+  _AudioQueueDispose
+  _AudioQueueEnqueueBuffer
+  _AudioQueueFreeBuffer
+  _AudioQueueGetProperty
+  _AudioQueueNewOutput
+  _AudioQueuePrime
+  _AudioQueueSetParameter
+  _AudioQueueSetProperty
+  _AudioQueueStart
+  _AudioQueueStop
+  _AudioSessionGetProperty
+  _AudioSessionInitialize
+  _AudioSessionSetActive
+  _AudioSessionSetProperty
+  _CFAbsoluteTimeGetCurrent
+  _CFArrayGetCount
+  _CFArrayGetValueAtIndex
+  _CFBundleCopyResourceURLForLocalization
+  _CFBundleGetMainBundle
+  _CFDataGetBytePtr
+  _CFDataGetBytes
+  _CFDataGetLength
+  _CFHostCreateWithName
+  _CFHostGetAddressing
+  _CFHostScheduleWithRunLoop
+  _CFHostSetClient
+  _CFHostStartInfoResolution
+  _CFHostUnscheduleFromRunLoop
+  _CFReadStreamClose
+  _CFReadStreamHasBytesAvailable
+  _CFReadStreamOpen
+  _CFReadStreamRead
+  _CFReadStreamScheduleWithRunLoop
+  _CFReadStreamSetClient
+  _CFRelease
+  _CFRunLoopAddTimer
+  _CFRunLoopGetCurrent
+  _CFRunLoopRemoveTimer
+  _CFRunLoopTimerCreate
+  _CFStreamCreatePairWithSocketToCFHost
+  _CFStringCreateWithCString
+  _CFURLCreateDataAndPropertiesFromResource
+  _CFURLCreateFromFileSystemRepresentation
+  _CFWriteStreamCanAcceptBytes
+  _CFWriteStreamClose
+  _CFWriteStreamOpen
+  _CFWriteStreamScheduleWithRunLoop
+  _CFWriteStreamSetClient
+  _CFWriteStreamWrite
+  _CGAffineTransformMakeRotation
+  _CGBitmapContextCreate
+  _CGBitmapContextGetData
+  _CGColorSpaceCreateDeviceRGB
+  _CGColorSpaceRelease
+  _CGContextConcatCTM
+  _CGContextFillEllipseInRect
+  _CGContextFillRect
+  _CGContextRelease
+  _CGContextRestoreGState
+  _CGContextSaveGState
+  _CGContextSelectFont
+  _CGContextSetCharacterSpacing
+  _CGContextSetFontSize
+  _CGContextSetRGBFillColor
+  _CGContextSetTextDrawingMode
+  _CGContextShowTextAtPoint
+  _CGImageRelease
+  _MPMoviePlayerContentPreloadDidFinishNotification
+  _MPMoviePlayerPlaybackDidFinishNotification
+  _NSHomeDirectory
+  _OBJC_CLASS_$_MPMoviePlayerController
+  _OBJC_CLASS_$_NSAutoreleasePool
+  _OBJC_CLASS_$_NSBundle
+  _OBJC_CLASS_$_NSData
+  _OBJC_CLASS_$_NSFileHandle
+  _OBJC_CLASS_$_NSFileManager
+  _OBJC_CLASS_$_NSMutableCharacterSet
+  _OBJC_CLASS_$_NSNotificationCenter
+  _OBJC_CLASS_$_NSObject
+  _OBJC_CLASS_$_NSString
+  _OBJC_CLASS_$_NSURL
+  _OBJC_CLASS_$_NSUserDefaults
+  _OBJC_CLASS_$_NSXMLParser
+  _OBJC_CLASS_$_UIApplication
+  _OBJC_CLASS_$_UIColor
+  _OBJC_CLASS_$_UIDevice
+  _OBJC_CLASS_$_UIFont
+  _OBJC_CLASS_$_UIImage
+  _OBJC_CLASS_$_UIImageView
+  _OBJC_CLASS_$_UIScreen
+  _OBJC_CLASS_$_UIScrollView
+  _OBJC_CLASS_$_UITextField
+  _OBJC_CLASS_$_UIView
+  _OBJC_CLASS_$_UIWindow
+  _OBJC_METACLASS_$_NSObject
+  _OBJC_METACLASS_$_UIImageView
+  _OBJC_METACLASS_$_UIScrollView
+  _OBJC_METACLASS_$_UIView
+  _UIApplicationMain
+  _UIGraphicsGetCurrentContext
+  _UIGraphicsPopContext
+  _UIGraphicsPushContext
+  __Unwind_SjLj_Register
+  __Unwind_SjLj_Resume
+  __Unwind_SjLj_Unregister
+  __ZSt17__throw_bad_allocv
+  __ZSt18_Rb_tree_incrementPSt18_Rb_tree_node_base
+  __ZSt20__throw_length_errorPKc
+  __ZSt28_Rb_tree_rebalance_for_erasePSt18_Rb_tree_node_baseRS_
+  __ZSt29_Rb_tree_insert_and_rebalancebPSt18_Rb_tree_node_baseS0_RS_
+  __ZdaPv
+  __ZdlPv
+  __Znam
+  __Znwm
+  ___CFConstantStringClassReference
+  ___adddf3vfp
+  ___addsf3vfp
+  ___divdf3vfp
+  ___divsf3vfp
+  ___divsi3
+  ___eqdf2vfp
+  ___extendsfdf2vfp
+  ___fixdfdi
+  ___fixdfsivfp
+  ___fixsfsivfp
+  ___fixunsdfsivfp
+  ___fixunssfsivfp
+  ___floatdidf
+  ___floatsidfvfp
+  ___floatsisfvfp
+  ___gedf2vfp
+  ___gesf2vfp
+  ___gtdf2vfp
+  ___gxx_personality_sj0
+  ___ledf2vfp
+  ___ltdf2vfp
+  ___ltsf2vfp
+  ___modsi3
+  ___muldf3vfp
+  ___muldi3
+  ___mulsf3vfp
+  ___nesf2vfp
+  ___subsf3vfp
+  ___truncdfsf2vfp
+  ___udivsi3
+  __objc_empty_cache
+  __objc_empty_vtable
+  _alDeleteBuffers
+  _alDeleteSources
+  _alGenBuffers
+  _alGenSources
+  _alGetError
+  _alGetSourcei
+  _alListener3f
+  _alSourcePlay
+  _alSourceQueueBuffers
+  _alSourceStop
+  _alSourceUnqueueBuffers
+  _alSourcef
+  _alSourcei
+  _alcCloseDevice
+  _alcCreateContext
+  _alcDestroyContext
+  _alcGetProcAddress
+  _alcMakeContextCurrent
+  _alcOpenDevice
+  _exit
+  _free
+  _getnameinfo
+  _kCFAllocatorDefault
+  _kCFRunLoopCommonModes
+  _kCFRunLoopDefaultMode
+  _malloc
+  _memcpy
+  _memmove
+  _memset
+  _objc_enumerationMutation
+  _objc_msgSend
+  _objc_msgSendSuper2
+  _objc_msgSend_stret
+  _objc_setProperty
+  _printf
+  _pthread_attr_destroy
+  _pthread_attr_init
+  _pthread_attr_setdetachstate
+  _pthread_create
+  _pthread_mach_thread_np
+  _pthread_self
+  _puts
+  _sprintf
+  _strcat
+  _strcmp
+  _strcpy
+  _strlen
+  _strncat
+  _thread_info
+  _thread_policy_set
