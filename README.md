@@ -1,108 +1,133 @@
-# iOS Mach-O Loader Boilerplate for PS Vita
+<h1 align="center">
+  <img src="extras/livearea/pic0.png" alt="Inotia: Legend of Feanor PS Vita Banner" width="700"><br>
+  The Chronicles of Inotia: Legend of Feanor · PS Vita Port
+</h1>
 
-A reusable boilerplate and scaffolding framework for porting classic 32-bit iOS games (ARMv6 / ARMv7, 32-bit Mach-O `MH_EXECUTE`) to the PlayStation Vita.
-This is the iOS counterpart to [`soloader-boilerplate`](https://github.com/Rinnegatamante/soloader-boilerplate) (Android), based on the proven, battle-tested architecture developed in [`Inotia2-vita`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/Inotia2-vita).
+<p align="center">
+  <a href="#-status--playability">Status & Playability</a> •
+  <a href="#setup-instructions-for-players">How to install</a> •
+  <a href="#controls">Controls</a> •
+  <a href="#known-issues">Known Issues</a> •
+  <a href="#build-instructions-for-developers">How to compile</a> •
+  <a href="#credits--acknowledgments">Credits</a>
+</p>
 
----
-
-## Loader Architecture
-
-| Component | File(s) | Role & Emulation Functionality |
-|---|---|---|
-| **Mach-O Loader** | [`source/macho.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/macho.c), [`source/macho.h`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/macho.h) | Custom static dyld and 32-bit Mach-O executable loader with fixed base address (`MACHO_SLIDE = 0x98000000`). Applies data segment rebases, resolves import tables (`__la_symbol_ptr`, `__nl_symbol_ptr`), and binds stubs for unhandled symbols. |
-| **Assembly Glue & Trampolines** | [`source/asm.S`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/asm.S) | `call_guest` and `call_guest6` (preserve `r9`). `ml_align_call` (bridges iOS 4-byte stack alignment to VitaSDK/newlib 8-byte AAPCS). `ml_unimpl_entry` (auto-logging unimplemented stub). |
-| **Darwin / POSIX Subsystem** | [`source/darwin.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/darwin.c), [`source/darwin.h`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/darwin.h) | Darwin libc, libgcc, pthreads, and sockets emulation. Thread-safe POSIX wrapper with `SceUID` tracking (prevents fatal crashes on `pthread_detach`). High-precision `mach_absolute_time()` mapped to `sceKernelGetProcessTimeWide()`. |
-| **Variadic Formatter** | [`source/darwin_printf.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/darwin_printf.c), [`source/darwin_printf.h`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/darwin_printf.h) | Printf engine tailored to Darwin's ARM ABI: reads 64-bit doubles and integers from unaligned word boundaries, with native support for Objective-C's `%@` specifier (`NSString*`). |
-| **Mini-runtime ObjC / UIKit** | [`source/objc.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/objc.c), [`source/objc.h`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/objc.h) | Fast selector-based dispatching with `objc_msgSend` and `objc_msgSend_stret`. Emulates `NSString`, `UIFont` (rendered using a FreeType glyph atlas), `NSBundle` (`resourcePath`), `NSCalendar`, `UIDevice`, and on-screen keyboard via `sceImeDialog`. |
-| **OpenGL ES Graphics Backend** | [`source/gles.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/gles.c), [`source/gles.h`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/gles.h), [`source/vitagl_no_splash.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/vitagl_no_splash.c) | GLES1 and GLES2 pipeline powered by vendored `vitaGL` compiled with `SOFTFP_ABI=1`. Virtual FBO supports display orientation rotation and aspect-ratio scaling (portrait/landscape to Vita's native 960x544). Converts `GL_FIXED` vertex arrays and disables blocking splashscreens. |
-| **CgBI PNG Decoder** | [`source/cgbi.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/cgbi.c), [`source/cgbi.h`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/cgbi.h) | Native decompressor and BGR-to-RGB byte-swap converter for Apple's proprietary CgBI-optimized PNG assets, allowing intact IPA bundles to load directly without offline conversion. |
-| **CoreAudio Backend** | [`source/coreaudio.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/coreaudio.c) | Emulates AudioUnit RemoteIO and AudioSession on a dedicated high-priority `sceAudioOut` audio thread. |
-| **Input Subsystem** | [`source/input.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/input.c), [`source/input.h`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/input.h) | Maps PS Vita physical buttons and front capacitive multitouch screen to iOS touch events (`UITouchPhaseBegan`, `Moved`, `Ended`). |
-| **Logging Subsystem** | [`source/log.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/log.c), [`source/log.h`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/log.h) | Rotating on-device file logger (`ux0:data/<slug>/logs/log_001.log` .. `log_999.log`) and live stdout streaming. |
-| **Game Patches & Glue** | [`source/patch.c`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/patch.c), [`source/patch.h`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/patch.h) | Dedicated hooks for game-specific memory patches, symbol redirection, and custom bypasses. |
+An unofficial, native **iOS-to-PS Vita wrapper port** of *The Chronicles of Inotia: Legend of Feanor* (originally developed by **Com2uS**). There is no ELF here: this port ships its own **Mach-O loader** that maps the official iPhone OS 2.2 ARMv6 executable (`feanor2i`, from the 1.0.4 IPA) into PS Vita RAM and replaces the Apple frameworks it uses (Foundation, UIKit, CoreGraphics, AudioToolbox, OpenAL, MediaPlayer) with native implementations on top of **vitaGL**, **FreeType**, **FFmpeg** and the Vita system libraries.
 
 ---
 
-## Critical iOS on PS Vita ABI Rules
+## 🎮 Status & Playability
 
-1. **`r9` as a Scratch Register**:
-   - In Apple's Darwin ARMv6/v7 ABI, `r9` is an available scratch register (not callee-saved).
-   - In the standard ARM AAPCS (used by VitaSDK/newlib), `r9` is callee-saved or platform-reserved.
-   - **Rule**: The entire loader codebase MUST be compiled with `-ffixed-r9`, and any execution transfer into the game binary must transition through `call_guest` / `call_guest6` in [`source/asm.S`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/source/asm.S) to prevent register corruption.
-2. **SoftFP Calling Convention**:
-   - iOS 32-bit binaries pass single and double precision floats in integer registers (`r0..r3`).
-   - `vitaGL` MUST be compiled with `SOFTFP_ABI=1` so that internal calls and GXM commands (`sceGxmSetViewport`, etc.) maintain proper argument alignment.
-3. **4-Byte Stack Alignment**:
-   - 32-bit iOS code only enforces 4-byte stack alignment.
-   - VitaSDK newlib functions (especially `printf`, `malloc`, and math routines) expect an 8-byte aligned stack (AAPCS).
-   - All C callbacks invoked by the game binary enter through `ml_align_call` to re-align `sp` to an 8-byte boundary before calling newlib or vitaGL.
-4. **FairPlay DRM Decryption**:
-   - The Mach-O executable in the IPA must be completely decrypted (`cryptid = 0`).
-   - Binaries dumped directly from an encrypted app package will crash immediately with a Data Abort when loaded.
+**Status: PLAYABLE (v0.1.0)**
+
+The game plays its intro video, reaches the title screen and menus, and is playable in-game on physical PlayStation Vita hardware.
+
+- [x] **Mach-O loader**: maps the image at `0x98000000` (`MACHO_SLIDE`), applies 6,279 rebase words, resolves 314 import slots (0 unimplemented) and registers the game's 6 Objective-C classes on a mini ObjC runtime. *Verified on console.*
+- [x] **Graphics**: the game renders in software into a 320×480 CoreGraphics bitmap (`-[MyView drawRect:]`); the loader uploads it as a vitaGL texture, rotated to landscape and scaled to 816×544 (original 3:2 aspect). *Verified on console.*
+- [x] **Text & Fonts**: UIKit/CoreGraphics text is rendered with FreeType: NanumGothic for Latin/Korean, plus a DejaVu Sans fallback for accented characters (á é í ó ú ñ ü…). Spanish text displays complete. *Verified on console.*
+- [x] **Intro video**: `Feanor2i.mp4` plays through FFmpeg software decoding with sound; Cross/Start skips it. *Verified on console.*
+- [x] **Performance**: the WIPI engine's own frame timers (`SetTimer(10)`) are serviced every 4 ms, so frames are no longer dropped to 10 FPS. *Verified on console.*
+- [x] **Audio**: music (AudioQueue) and sound effects (OpenAL) play through `sceAudioOut`. The music thread runs at a higher priority on its own core to avoid cuts.
+- [x] **Saves**: progress is written to `ux0:data/feanor/Documents/` (fixed a crash when saving).
+- [x] **Pause**: Start / Select suspend and resume the game through its own `applicationWillResignActive:` / `applicationDidBecomeActive:` handlers.
 
 ---
 
-## Included Tools (`tools/`)
+## Disclaimer
 
-- [`tools/macho_prep.py`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/tools/macho_prep.py): Analyzes thin or fat Mach-O executables, verifies `cryptid == 0`, scans `__DATA` pointers against symbols, and generates `rebase.bin`.
-- [`tools/annotate.py`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/tools/annotate.py): Disassembles functions, resolving PIC calls, ObjC selectors, classes, and literal strings.
-- [`tools/cgbi_check.py`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/tools/cgbi_check.py): Verifies and extracts Apple CgBI-compressed PNG files.
-- [`tools/printf_check.py`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/tools/printf_check.py): Validates variadic string format specifiers and alignment.
-- [`tools/stage_data.sh`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/tools/stage_data.sh): Packages and organizes game assets into `ux0_data/<slug>/`.
-- [`tools/deploy_data.py`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/tools/deploy_data.py): Incremental FTP deployment directly to the PS Vita (VitaShell).
+**The Chronicles of Inotia: Legend of Feanor** is a registered trademark of **Com2uS**. The work presented in this repository is unofficial and is not produced, endorsed, or sanctioned by Com2uS or any affiliated entities.
+
+This software does NOT contain original game code, binaries, copyrighted graphics, or game assets. The authors do not promote or condone piracy in any way. To play, you must provide your own legally obtained, **decrypted** copy of the iOS `.ipa`.
 
 ---
 
-## LiveArea Assets (`extras/livearea/`)
+## Setup Instructions (For Players)
 
-The repository stores all LiveArea presentation assets in [`extras/livearea/`](file:///Volumes/TOSHIBA%20EXT/PSVITA%20Develop/ios-loader-boilerplate/extras/livearea):
-- `icon0.png`: 128×128 application icon (official iOS wordmark on light gray `#E5E5EA`).
-- `pic0.png`: 960×544 splash screen ("iPhone OS" in Helvetica Neue typography on charcoal `#202020`).
-- `startup.png`: 280×158 LiveArea startup gate button.
-- `bg0.png`: 840×500 LiveArea background (faceted geometric low-poly mesh in Apple slate gray).
-- `template.xml`: Vita LiveArea layout definition.
-
-These files are automatically mapped directly into `sce_sys/` inside the output `.vpk` by `vita_create_vpk` in `CMakeLists.txt`.
+1. **CFW & Plugins**: PS Vita on Custom Firmware (**Enso 3.60 / 3.65** recommended) with `kubridge` under `*KERNEL` in `ur0:tai/config.txt`:
+   ```ini
+   *KERNEL
+   ur0:tai/kubridge.skprx
+   ```
+2. **Shader Compiler**: `libshacccg.suprx` must be in `ur0:data/` (extract it with **ShaRKBR33D**).
+3. **Game Files**: a decrypted **Inotia: Legend of Feanor 1.0.4** iOS `.ipa` (FairPlay `cryptid 0`). Open it as a ZIP and extract `Payload/feanor2i.app/`.
+4. **Prepare the data** on a computer (macOS, Python 3 and `ffmpeg` required) with `tools/stage_feanor.sh` from this repository (see [Build Instructions](#build-instructions-for-developers)). It copies the app, generates `rebase.bin` / `binds.bin`, converts `Info.plist` to binary and converts the intro video to MPEG-4 Part 2 (the Vita's FFmpeg build has no H.264 decoder).
+5. **Copy to the Vita** (`ux0:data/feanor/`):
+   ```
+   ux0:data/feanor/
+     game_app/       the feanor2i.app contents (staged)
+     rebase.bin      absolute pointers to relocate
+     binds.bin       Apple framework import slots
+     nib.txt, nibs/  MainWindow.nib, pre-parsed
+     Feanor2i.mp4    converted intro video
+     controls.txt    button -> touch mapping (editable)
+     font.ttf, font_latin.ttf
+     Documents/      created automatically — your save games
+     logs/           created automatically — feanor_001.log … one per run
+   ```
+6. **Install VPK**: install `feanor.vpk` with VitaShell.
 
 ---
 
-## Target Console Directory Layout (`ux0:data/<slug>/`)
+## Controls
 
-```
-ux0:data/<slug>/
-  <AppName>.app/   Extracted iOS game bundle (.png, .caf, .fsb, plist assets)
-  rebase.bin       Rebase relocation table generated by tools/macho_prep.py
-  saves/           Game save directory (mapped to iOS Documents/ folder)
-  logs/            Runtime execution logs (log_001.log .. log_999.log)
-```
+| Input | Action | Status |
+| :---: | :--- | :---: |
+| **Front Touchscreen** | Full touch UI (the original control scheme) | ✅ Working |
+| **D-Pad / Left Stick** | Movement & menu navigation (sent to the engine as keypad 2/4/6/8) | ✅ Working |
+| **Cross (✖)** | Confirm / Action (keypad 5) | ✅ Working |
+| **Circle (●)** | Taps the HUD button at the bottom-right corner | ⚠️ Not yet verified on console |
+| **Start / Select** | Pause / Resume | ⚠️ Not yet verified on console |
+| **Select + Start (hold 2 s)** | Cycle screen rotation (saved to `rotation.txt`) | ⚠️ Not yet verified on console |
+
+> [!TIP]
+> Button-to-touch mappings live in `ux0:data/feanor/controls.txt` (`BUTTON x y`, landscape 480×320 coordinates) and can be edited over FTP without recompiling.
 
 ---
 
-## Quick Start & Port Initialization
+## Known Issues
 
-Using `psvita-toolkit`:
+- **Side bars**: the 3:2 image is shown at its original aspect (816×544), leaving black bars on the left and right.
+- **Touch in menus**: some menu taps may need to be repeated; under investigation.
+- **Missing in-game elements**: some HUD/in-game elements may not be drawn yet; under investigation.
+- **Online features disabled**: Com2uS online services, "More Games" and in-app purchases are not available.
+- **Crash dumps** are written by the system to `ux0:data/` (not to the game folder).
+
+---
+
+## Build Instructions (For Developers)
+
+### Prerequisites
+
+- [VitaSDK](https://vitasdk.org/) (`$VITASDK`) with `vitaGL`, `vitashark`, `openal`, `freetype`, `libvorbis` and the vdpm FFmpeg build (`avcodec`, `avformat`, `swresample`, `avutil`, `mp3lame`).
+- CMake 3.14+, Python 3, `ffmpeg` and `plutil` (macOS) for data staging.
+- The decrypted `feanor2i.app` folder, linked as `game_app` in the repo root (never committed).
+
+### Compilation Commands
+
 ```bash
-# Initialize a new iOS port directly from an IPA file:
-psvita-toolkit init-port --ipa /path/to/game.ipa
+git clone https://github.com/MetalSyntax/Feanor-iOS-vita.git
+cd Feanor-iOS-vita
+ln -s /path/to/Payload/feanor2i.app game_app
 
-# Validate LiveArea assets:
-psvita-toolkit livearea validate
+# Stage the console data into ux0_data/feanor/
+tools/stage_feanor.sh
 
-# Build vitaGL with SoftFP ABI support:
-cd vendor/vitaGL && ./build_vitagl.sh
-
-# Configure and compile the VPK:
-cmake -B build
+# Build eboot.bin / feanor.vpk
+cmake -S . -B build
 cmake --build build
 ```
 
+### Deploy & Debug (over VitaShell FTP)
+
+```bash
+python3 -I tools/deploy_data.py          # incremental upload of ux0_data/feanor/ (never touches Documents/ or logs/)
+python3 -I tools/deploy_data.py --logs   # fetch logs/feanor_NNN.log and crash dumps into ./logs/
+hosttest/run.sh build && hosttest/run.sh run 60   # run the loader on Linux ARM32 (Docker) without a console
+```
+
+A crash PC in `0x98xxxxxx` minus `0x98000000` is the address in the Mach-O: inspect it with `otool -tV game_app/feanor2i` or `tools/annotate.py`. Architecture and progress notes: [`PORTING_PLAN.md`](PORTING_PLAN.md).
+
 ---
-
-## Third-party Fonts & Code
-
-- `font.ttf`: NanumGothic (SIL Open Font License 1.1).
-- `font_latin.ttf`: Latin subset of DejaVu Sans 2.37 (Bitstream Vera / DejaVu license, free redistribution; "DejaVu" and "Bitstream Vera" are not trademarks used for endorsement). Fallback for accented characters NanumGothic lacks (á é í ó ú ñ ü…).
-- `source/video.cpp`: intro video playback (FFmpeg software decode), adapted from the `video-ffmpeg` recipe of `psvita-toolkit` (Asphalt-6-Vita).
 
 ## ☕ Support My Work
 
@@ -122,3 +147,16 @@ This project is **free** and will stay free. If you enjoy it, a tip from **$1** 
 - A say in which games I port next.
 
 > Game files are never distributed. You always need your own legally obtained copy of the game.
+
+---
+
+## Credits & Acknowledgments
+
+- **The Chronicles of Inotia: Legend of Feanor** is intellectual property of **Com2uS**.
+- **Inotia 2** and **Inotia 3** PS Vita ports by [MetalSyntax](https://github.com/MetalSyntax/Inotia2-vita) ([Inotia 3](https://github.com/MetalSyntax/Inotia3-vita)) for the shared iOS loader and engine research.
+- **Intro video player** adapted from the FFmpeg cutscene player of the [Asphalt 6 PS Vita port](https://github.com/MetalSyntax/Asphalt-6-Vita).
+- **vitaGL** graphics library by [Rinnegatamante](https://github.com/Rinnegatamante/vitaGL).
+- **kubridge** plugin by [Bythos](https://github.com/bythos14/kubridge).
+- **FreeType**, **FFmpeg**, **OpenAL Soft**, **libvorbis** and **zlib** projects.
+- **Fonts**: NanumGothic (`font.ttf`, SIL Open Font License 1.1) and a Latin subset of DejaVu Sans 2.37 (`font_latin.ttf`, Bitstream Vera / DejaVu license).
+- Special thanks to the PS Vita homebrew and porting community.
