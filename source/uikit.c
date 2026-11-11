@@ -961,7 +961,7 @@ static void cg_FillEllipseInRect(cg_ctx *c, CGRect r) {
 #include <ft2build.h>
 #include FT_FREETYPE_H
 static FT_Library ft_lib;
-static FT_Face ft_face;
+static FT_Face ft_face, ft_latin; // font.ttf (NanumGothic) no trae Latin-1: tildes/ñ salen de font_latin.ttf
 static int ft_failed;
 static FT_Face font_face(void) {
     if (ft_face || ft_failed)
@@ -974,6 +974,12 @@ static FT_Face font_face(void) {
             else
                 l_info("texto: fuente %s", paths[i]);
         }
+    if (ft_face && FT_New_Face(ft_lib, DATA_PATH "font_latin.ttf", 0, &ft_latin) &&
+        FT_New_Face(ft_lib, "app0:font_latin.ttf", 0, &ft_latin))
+        ft_latin = NULL;
+    if (ft_face)
+        l_info("texto: respaldo latino %s (U+00F3: font.ttf glifo %u, respaldo glifo %u)", ft_latin ? "ok" : "NO",
+               FT_Get_Char_Index(ft_face, 0xF3), ft_latin ? FT_Get_Char_Index(ft_latin, 0xF3) : 0);
     if (!ft_face) {
         ft_failed = 1;
         l_error("texto: no hay font.ttf (ni en " DATA_PATH " ni en app0:): el texto de UIKit/CG queda vacío");
@@ -995,6 +1001,8 @@ static const glyph *glyph_get(uint32_t cp, int px) {
     FT_Face f = font_face();
     if (!f)
         return NULL;
+    if (ft_latin && !FT_Get_Char_Index(f, cp) && FT_Get_Char_Index(ft_latin, cp))
+        f = ft_latin;
     FT_Set_Pixel_Sizes(f, 0, px);
     if (FT_Load_Char(f, cp, FT_LOAD_RENDER))
         return NULL;
@@ -1028,6 +1036,8 @@ static uint32_t utf8_next(const uint8_t **p) {
 // (x, y)); si no, espacio CG con la línea base en y y +y hacia arriba. Devuelve el ancho en unidades de usuario.
 static float text_run(cg_ctx *c, const uint32_t *cps, int n, float x, float y, float size, float spacing, int ydown,
                       int draw) {
+    extern uint64_t ui_prof[4];
+    uint64_t t0 = sceKernelGetProcessTimeWide();
     int px = (int)(size + 0.5f);
     if (px < 4)
         px = 4;
@@ -1059,6 +1069,7 @@ static float text_run(cg_ctx *c, const uint32_t *cps, int n, float x, float y, f
         }
         pen += g->adv / 64.0f + spacing;
     }
+    ui_prof[2] += sceKernelGetProcessTimeWide() - t0;
     return pen - x;
 }
 static int utf8_to_cps(const char *s, size_t len, uint32_t *out, int max) {
@@ -1084,10 +1095,19 @@ typedef struct {
     objc_class *isa;
     float size;
 } ui_font;
+// Inmortales y cacheadas por tamaño como en iOS: Feanor guarda fontWithName:size: en un global sin retain.
 static id font_make(float size) {
+    static ui_font *cache[64];
+    static int n;
+    size = size > 0 ? size : 12;
+    for (int i = 0; i < n; i++)
+        if (cache[i]->size == size)
+            return cache[i];
     ui_font *f = objc_alloc(c_UIFont);
-    f->size = size > 0 ? size : 12;
-    return AR(f);
+    f->size = size;
+    if (n < 64) // ponytail: más de 64 tamaños distintos vuelven a ser objetos sueltos que nunca se liberan
+        cache[n++] = f;
+    return f;
 }
 static id font_system(id cls, SEL _c, float size) { return font_make(size); }
 static id font_named(id cls, SEL _c, id name, float size) { return font_make(size); }
@@ -1117,7 +1137,8 @@ static const nmethod nsstring_draw_i[] = {
 
 // UIView con drawRect: propio y sin capa EAGL: -setNeedsDisplay dibuja ya en un contexto del tamaño de la vista
 // (CTM de UIKit: y hacia abajo) y lo presenta como textura de pantalla (gles_present_pixels). Formato del
-// contexto = el de los CGBitmapContext del juego (Feanor: kCGImageAlphaPremultipliedFirst, bytes A R G B).
+// contexto = el backing store de UIKit en iPhone: PremultipliedFirst|ByteOrder32Little (uint32 0xAARRGGBB nativo);
+// Feanor copia ahí su framebuffer palabra a palabra en drawRect: con alpha 0, así que se fuerza opaco.
 extern uint32_t objc_call_imp6(void *imp, id self, SEL sel, uint32_t a, uint32_t b, uint32_t c, uint32_t d, uint32_t e,
                                uint32_t f);
 extern void *objc_lookup_imp(id self, SEL sel);
@@ -1134,7 +1155,7 @@ static void v_setNeedsDisplay(id self, SEL _c) {
     if (!sw_ctx || sw_ctx->w != w || sw_ctx->h != h) {
         if (sw_ctx)
             cg_ContextRelease(sw_ctx);
-        sw_ctx = cg_BitmapContextCreate(NULL, w, h, 8, 0, (void *)1, 2);
+        sw_ctx = cg_BitmapContextCreate(NULL, w, h, 8, 0, (void *)1, 2 | 0x2000);
         free(sw_rgba);
         sw_rgba = malloc(w * h * 4);
         l_info("dibujo por software: -[%s drawRect:] en %dx%d", class_getName(object_getClass(self)), w, h);
@@ -1146,14 +1167,18 @@ static void v_setNeedsDisplay(id self, SEL _c) {
         float f;
         uint32_t u;
     } fw = {(float)w}, fh = {(float)h};
+    extern uint64_t ui_prof[4];
+    uint64_t t0 = sceKernelGetProcessTimeWide();
     objc_call_imp6(objc_lookup_imp(self, dr), self, dr, 0, 0, fw.u, fh.u, 0, 0);
+    uint64_t t1 = sceKernelGetProcessTimeWide();
+    ui_prof[1] += t1 - t0;
     ui_PopContext();
-    // A R G B (fila 0 = arriba) -> R G B A con la fila 0 abajo (textura GL, como el FBO del juego)
+    // uint32 0xAARRGGBB (fila 0 = arriba) -> bytes R G B A con la fila 0 abajo (textura GL, como el FBO del juego)
     for (int y = 0; y < h; y++) {
         const uint32_t *s = (const uint32_t *)(sw_ctx->data + y * sw_ctx->bpr);
         uint32_t *d = sw_rgba + (h - 1 - y) * w;
         for (int x = 0; x < w; x++)
-            d[x] = s[x] >> 8 | 0xFF000000u;
+            d[x] = (s[x] & 0x0000FF00u) | (s[x] >> 16 & 0xFFu) | (s[x] & 0xFFu) << 16 | 0xFF000000u;
     }
     if (frames == 1 || frames % 300 == 0) { // diagnóstico: ¿el juego pintó algo? ponytail: quitar cuando se vea bien
         int lit = 0;
@@ -1163,6 +1188,7 @@ static void v_setNeedsDisplay(id self, SEL _c) {
                (unsigned)sw_rgba[h / 2 * w + w / 2]);
     }
     gles_present_pixels(w, h, sw_rgba);
+    ui_prof[3] += sceKernelGetProcessTimeWide() - t1;
     frames++;
 }
 
@@ -1402,22 +1428,33 @@ static const nmethod uitf_i[] = {
     NM("setKeyboardAppearance:", v_noop), NM("setTextAlignment:", v_noop), NM("setClearButtonMode:", v_noop),
     NM("setEnablesReturnKeyAutomatically:", v_noop), NM("addTarget:action:forControlEvents:", v_noop), {0}};
 
-// ================================================================ MediaPlayer (videos: se saltean)
+// ================================================================ MediaPlayer
+// play bloquea reproduciendo DATA_PATH<nombre>.mp4 con FFmpeg (video.cpp): el H.264 del IPA se convierte a
+// MPEG-4 Part 2 al preparar los datos (tools/stage_feanor.sh), el libavcodec de vdpm no trae H.264.
+#include "video.h"
+static char movie_name[128];
 
 static id movie_done; // MPMoviePlayerController que terminó (notificación diferida)
 static uint64_t movie_done_at; // Gameloft marca isMoviePlaying 10 ms DESPUÉS de play: avisar el fin más tarde
 static id movie_preload; // iPhone OS 2: el juego espera ContentPreloadDidFinish para llamar a play (Feanor)
 static id mp_initWithURL(id self, SEL _c, id url) {
-    l_info("MPMoviePlayerController %s (sin video: termina enseguida)", ns_cstr(url));
+    const char *u = ns_cstr(url), *slash = u ? strrchr(u, '/') : NULL;
+    snprintf(movie_name, sizeof(movie_name), "%s", slash ? slash + 1 : u ? u : "");
+    l_info("MPMoviePlayerController %s", u);
     objc_release(movie_preload);
     movie_preload = objc_retain(self);
     return self;
 }
 static void mp_play(id self, SEL _c) {
+    static int inited;
+    if (!inited++)
+        video_init();
+    if (movie_name[0])
+        video_play(movie_name); // si falta el archivo, loguea y vuelve enseguida
     objc_release(movie_done);
     movie_done = objc_retain(self);
     movie_done_at = sceKernelGetProcessTimeWide() + 500000;
-    l_info("MPMoviePlayerController play (fin en 0.5 s)");
+    l_info("MPMoviePlayerController play terminó (fin en 0.5 s)");
 }
 static id mp_view(id self, SEL _c) { return vc_view(self, _c); }
 static int mp_state(id self, SEL _c) { return 0; } // MPMusicPlaybackStateStopped: el juego pone su música
@@ -1702,6 +1739,13 @@ static void load_nib(void) {
 // ================================================================ run loop
 
 static int tick_depth;
+void ui_app_pause(int on) {
+    const char *sel = on ? "applicationWillResignActive:" : "applicationDidBecomeActive:";
+    l_info("pausa %s -> %s", on ? "ON" : "OFF", sel);
+    if (app_delegate && objc_responds(app_delegate, sel_registerName(sel)))
+        MSG1(app_delegate, sel, the_app);
+}
+
 void ui_runloop_tick(double max_wait) {
     tick_depth++;
     input_poll(); // -> ui_touch_event / botones

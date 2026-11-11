@@ -1215,7 +1215,7 @@ static id dt_data(objc_class *cls, SEL _c) { return AR(data_new(cls, NULL, 0, 1)
 static id dt_withBytes(objc_class *cls, SEL _c, const void *b, int n) { return AR(data_new(cls, b, n, 1)); }
 static id dt_withBytesNoCopy(objc_class *cls, SEL _c, void *b, int n) {
     ns_data *d = data_new(cls, b, n, 0);
-    d->owned = 1; // NoCopy sin freeWhenDone:NO = se adueña
+    d->owned = 0; // ponytail: Apple se adueña, pero _MC_fsWrite pasa su propio buffer y free() lo rompía al guardar; leak menor
     return AR(d);
 }
 static id dt_withBytesNoCopyFree(objc_class *cls, SEL _c, void *b, int n, int fr) {
@@ -1971,13 +1971,17 @@ double ns_run_timers(void) {
             i++;
         }
     pthread_mutex_unlock(&timer_lock);
+    extern uint64_t ui_prof[4];
     for (int i = 0; i < ndue; i++) {
         ns_timer *t = due[i];
+        uint64_t t0 = sceKernelGetProcessTimeWide();
         objc_pool_push();
         objc_msg(t->target, t->sel, (uint32_t)(t->repeats == 2 ? t->userInfo : (id)t), 0, 0, 0);
         objc_pool_pop();
+        ui_prof[0] += sceKernelGetProcessTimeWide() - t0;
         objc_release(t);
     }
+    wait -= mono() - now; // los callbacks ya consumieron parte de la espera (si no, período = intervalo + trabajo)
     return wait < 0 ? 0 : wait;
 }
 
@@ -2400,7 +2404,14 @@ static void cf_runLoopAddTimer(id rl, cf_timer *t, id mode) {
     if (!t || t->timer)
         return;
     extern id ns_timer_schedule_c(double interval, id target, SEL sel);
-    t->timer = ns_timer_schedule_c(t->interval > 0 ? t->interval : 1.0 / 60, t, sel_registerName("_mlFire:"));
+    double iv = t->interval > 0 ? t->interval : 1.0 / 60;
+#ifdef PORT_CFTIMER_MAX_INTERVAL
+    // Motores WIPI (Feanor): el callout solo despacha timers propios vencidos por CFAbsoluteTime (MC_knlSetTimer,
+    // frame = fin + 10 ms). Con el tick de 50 ms original, un frame de >40 ms se pierde el tick y cae a 10 fps.
+    if (iv > PORT_CFTIMER_MAX_INTERVAL)
+        iv = PORT_CFTIMER_MAX_INTERVAL;
+#endif
+    t->timer = ns_timer_schedule_c(iv, t, sel_registerName("_mlFire:"));
 }
 static void cf_runLoopRemoveTimer(id rl, cf_timer *t, id mode) {
     if (t && t->timer) {

@@ -67,6 +67,8 @@ static GLuint bound_array_buffer, bound_element_buffer;
 enum { P_CONV, P_SKIN, P_DRAW, P_BUF, P_TEX, P_SWAP, P_N };
 static uint64_t prof[P_N], prof_n[P_N], prof_bytes;
 static uint64_t now_us(void) { return sceKernelGetProcessTimeWide(); }
+// Tiempos de UIKit/Foundation por frame (uikit.c, foundation.c): timer del juego, su drawRect:, texto, conversión.
+uint64_t ui_prof[4];
 #define PROF(k, stmt) do { uint64_t _t = now_us(); stmt; prof[k] += now_us() - _t; prof_n[k]++; } while (0)
 
 // Copias en CPU de los VBO (para convertir GL_FIXED y para índices en glDrawElements).
@@ -1099,6 +1101,9 @@ void gles_present(void) {
                prof[P_DRAW] / 1e3 / f, (unsigned)(prof_n[P_DRAW] / f), prof[P_BUF] / 1e3 / f, (unsigned)(prof_n[P_BUF] / f),
                (unsigned)(prof_bytes / 1024 / f), prof[P_TEX] / 1e3 / f, (unsigned)(prof_n[P_TEX] / f), prof[P_SWAP] / 1e3 / f,
                tot - (prof[P_CONV] + prof[P_SKIN] + prof[P_DRAW] + prof[P_BUF] + prof[P_TEX] + prof[P_SWAP]) / 1e3 / f);
+        l_info("PERF ui ms/frame: timer %.1f (drawRect %.1f, texto %.1f, conv+subida %.1f)", ui_prof[0] / 1e3 / f,
+               ui_prof[1] / 1e3 / f, ui_prof[2] / 1e3 / f, ui_prof[3] / 1e3 / f);
+        memset(ui_prof, 0, sizeof(ui_prof));
         if (envc_n)
             l_info("ENVCOLOR alfa %g .. %g (%u llamadas)", envc_min, envc_max, envc_n);
         envc_min = 1e9f, envc_max = -1e9f, envc_n = 0;

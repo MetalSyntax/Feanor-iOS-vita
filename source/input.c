@@ -28,6 +28,7 @@ static struct {
 static uint32_t prev_buttons;
 static float stick_x, stick_y;
 static uint64_t combo_since;
+static int combo_used, paused; // START/SELECT sueltos = pausa (applicationWillResignActive:, como iOS)
 
 static const struct {
     const char *name;
@@ -117,7 +118,7 @@ static void logical_size(float *w, float *h) {
 
 void input_poll(void) {
     SceTouchData t;
-    if (sceTouchPeek(SCE_TOUCH_PORT_FRONT, &t, 1) < 1)
+    if (paused || sceTouchPeek(SCE_TOUCH_PORT_FRONT, &t, 1) < 1)
         t.reportNum = 0;
     // dos dedos como máximo (los juegos de 2009 rara vez usan más)
     for (int k = 0; k < 2; k++) {
@@ -161,6 +162,20 @@ void input_poll(void) {
     if (stick_y > -0.12f && stick_y < 0.12f)
         stick_y = 0;
     uint32_t b = pad.buttons, changed = b ^ prev_buttons;
+    const uint32_t ss = SCE_CTRL_SELECT | SCE_CTRL_START;
+    if ((b & ss) == ss)
+        combo_used = 1;
+    if ((prev_buttons & ss) && !(b & ss)) { // se soltó el último de los dos
+        if (!combo_used) {
+            paused = !paused;
+            ui_app_pause(paused);
+        }
+        combo_used = 0;
+    }
+    if (paused) { // congelado: ni botones mapeados ni stick-pad llegan al juego
+        prev_buttons = b;
+        return;
+    }
     for (int i = 0; i < nbinds; i++) {
         if (!(changed & binds[i].mask))
             continue;

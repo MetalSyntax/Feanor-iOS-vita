@@ -9,7 +9,7 @@ file(GLOB LOADER_SOURCES "${SRC}/*.c")
 list(FILTER LOADER_SOURCES EXCLUDE REGEX "/(\\._[^/]*|vitagl_no_splash\\.c)$")   # parche de vitaGL; AppleDouble
 
 add_executable(feanor ${LOADER_SOURCES} "${SRC}/asm.S"
-  psp2_fake.c vitagl_fake.c window_sdl.c vorbis_fake.c gles2_fake.c gl_thread.c psp2_extra.c)
+  psp2_fake.c vitagl_fake.c window_sdl.c vorbis_fake.c video_fake.c gles2_fake.c gl_thread.c psp2_extra.c)
 # include/ primero: su vitaGL.h sustituye al de vendor/vitaGL
 target_include_directories(feanor PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/include" "${PSP2_INCLUDE}" "${SRC}" /usr/include/freetype2)

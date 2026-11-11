@@ -6,7 +6,7 @@ if (NOT DEFINED ENV{VITASDK} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
 endif ()
 set(CMAKE_TOOLCHAIN_FILE "$ENV{VITASDK}/share/vita.toolchain.cmake" CACHE PATH "Toolchain file")
 
-project(feanor C ASM)
+project(feanor C CXX ASM)
 include("${VITASDK}/share/vita.cmake" REQUIRED)
 
 # --- datos del port (el resto de source/ es común a los ports iOS de Gameloft 2009-2010)
@@ -47,6 +47,7 @@ include_directories(
 # -ffixed-r9: Darwin usa r9 como temporal sin guardarlo; nuestro código no debe tocarlo.
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wl,-q -O2 -g -ffixed-r9 -mfloat-abi=softfp -DSKIP_SPLASHSCREEN -Wall -Wno-unused-function -Wno-pointer-sign -D_GNU_SOURCE")
 set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -ffixed-r9 -mfloat-abi=softfp")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -g -ffixed-r9 -mfloat-abi=softfp -Wall -D_GNU_SOURCE -fno-exceptions -fno-rtti")
 
 add_executable(${CMAKE_PROJECT_NAME}
   source/main.c
@@ -68,11 +69,13 @@ add_executable(${CMAKE_PROJECT_NAME}
   source/cxx_imports.c
   source/ios5.c
   source/patch.c
+  source/video.cpp
 )
 
 target_link_libraries(${CMAKE_PROJECT_NAME}
   -Wl,--whole-archive pthread -Wl,--no-whole-archive
   vitaGL_vendored_lib
+  avformat avcodec swresample avutil mp3lame
   vitashark
   SceShaccCgExt
   openal
@@ -119,4 +122,5 @@ vita_create_vpk(${VITA_VPKNAME}.vpk ${VITA_TITLEID} eboot.bin
   FILE ${CMAKE_SOURCE_DIR}/extras/livearea/startup.png sce_sys/livearea/contents/startup.png
   FILE ${CMAKE_SOURCE_DIR}/extras/livearea/template.xml sce_sys/livearea/contents/template.xml
   FILE ${CMAKE_SOURCE_DIR}/font.ttf font.ttf
+  FILE ${CMAKE_SOURCE_DIR}/font_latin.ttf font_latin.ttf
 )

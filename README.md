@@ -98,6 +98,12 @@ cmake --build build
 
 ---
 
+## Third-party Fonts & Code
+
+- `font.ttf`: NanumGothic (SIL Open Font License 1.1).
+- `font_latin.ttf`: Latin subset of DejaVu Sans 2.37 (Bitstream Vera / DejaVu license, free redistribution; "DejaVu" and "Bitstream Vera" are not trademarks used for endorsement). Fallback for accented characters NanumGothic lacks (á é í ó ú ñ ü…).
+- `source/video.cpp`: intro video playback (FFmpeg software decode), adapted from the `video-ffmpeg` recipe of `psvita-toolkit` (Asphalt-6-Vita).
+
 ## ☕ Support My Work
 
 This project is **free** and will stay free. If you enjoy it, a tip from **$1** helps me keep porting games to the PS Vita:

@@ -13,3 +13,4 @@
 #define PORT_SCREEN_W 320
 #define PORT_SCREEN_H 480
 #define PORT_SCREEN_SCALE 1.0f
+#define PORT_CFTIMER_MAX_INTERVAL 0.004 // el CFRunLoopTimer (0.05 s) despacha los timers WIPI: más fino = frames a tiempo
